@@ -36,16 +36,47 @@ function initSchema() {
       UNIQUE(person_a_id, person_b_id)
     );
 
+    CREATE TABLE IF NOT EXISTS swap_requests (
+      id TEXT PRIMARY KEY,
+      requester_id TEXT NOT NULL REFERENCES people(id),
+      target_person_id TEXT NOT NULL REFERENCES people(id),
+      requester_room TEXT NOT NULL,
+      target_room TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'accepted', 'declined', 'cancelled')),
+      created_at TEXT NOT NULL,
+      responded_at TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS saved_searches (
+      id TEXT PRIMARY KEY,
+      person_id TEXT NOT NULL REFERENCES people(id),
+      target_rooms TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'watching' CHECK(status IN ('watching', 'found', 'cancelled')),
+      created_at TEXT NOT NULL,
+      found_at TEXT,
+      last_result TEXT
+    );
+
     CREATE INDEX IF NOT EXISTS idx_connections_people ON connections(person_a_id, person_b_id);
     CREATE INDEX IF NOT EXISTS idx_connections_status ON connections(status);
+    CREATE INDEX IF NOT EXISTS idx_swap_requests_requester ON swap_requests(requester_id);
+    CREATE INDEX IF NOT EXISTS idx_swap_requests_target ON swap_requests(target_person_id);
+    CREATE INDEX IF NOT EXISTS idx_swap_requests_status ON swap_requests(status);
+    CREATE INDEX IF NOT EXISTS idx_saved_searches_person ON saved_searches(person_id);
+    CREATE INDEX IF NOT EXISTS idx_saved_searches_status ON saved_searches(status);
   `);
 
-  // Add password_hash column if upgrading from old schema
-  // This is outside the db.exec() call so we can use JS try/catch
+  // Add columns if upgrading from old schema
+  // (outside the db.exec() so we can use JS try/catch)
   try {
     db.exec("ALTER TABLE people ADD COLUMN password_hash TEXT NOT NULL DEFAULT ''");
   } catch (_e) {
-    // Column already exists on fresh database — no action needed
+    // Column already exists — no action needed
+  }
+  try {
+    db.exec("ALTER TABLE people ADD COLUMN previous_room TEXT");
+  } catch (_e) {
+    // Column already exists — no action needed
   }
 }
 

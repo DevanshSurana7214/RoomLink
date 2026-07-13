@@ -25,7 +25,7 @@ router.post('/login', loginLimiter, (req, res) => {
   }
 
   const db = getDb();
-  const person = db.prepare('SELECT id, name, roll_number, room_no, password_hash FROM people WHERE roll_number = ?').get(roll_number.trim());
+  const person = db.prepare('SELECT id, name, roll_number, room_no, previous_room, password_hash FROM people WHERE roll_number = ?').get(roll_number.trim());
 
   if (!person) {
     return res.status(401).json({ error: 'Invalid roll number or password' });
@@ -46,6 +46,7 @@ router.post('/login', loginLimiter, (req, res) => {
       name: person.name,
       roll_number: person.roll_number,
       room_no: person.room_no,
+      previous_room: person.previous_room,
     },
   });
 });

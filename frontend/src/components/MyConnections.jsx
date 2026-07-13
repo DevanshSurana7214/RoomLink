@@ -20,21 +20,25 @@ function ConsentSwitch({ connectionId, direction, label, enabled, onChange, load
 export default function MyConnections({ currentUser }) {
   const [connections, setConnections] = useState([]);
   const [pendingRequests, setPendingRequests] = useState([]);
+  const [swapData, setSwapData] = useState({ incoming: [], outgoing: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [confirmingId, setConfirmingId] = useState(null);
   const [consentLoading, setConsentLoading] = useState(null);
+  const [swapActing, setSwapActing] = useState(null);
 
   const loadData = useCallback(async () => {
     if (!currentUser) return;
     setLoading(true);
     try {
-      const [conns, pending] = await Promise.all([
+      const [conns, pending, swaps] = await Promise.all([
         api.getMyConnections(),
         api.getPendingRequests(),
+        api.getMySwaps(),
       ]);
       setConnections(conns);
       setPendingRequests(pending);
+      setSwapData(swaps);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -78,6 +82,34 @@ export default function MyConnections({ currentUser }) {
     }
   };
 
+  const handleAcceptSwap = async (id) => {
+    const confirmed = window.confirm(
+      'This will change your room. Are you sure you want to accept this swap?'
+    );
+    if (!confirmed) return;
+    setSwapActing('accept-' + id);
+    try {
+      await api.acceptSwap(id);
+      await loadData();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSwapActing(null);
+    }
+  };
+
+  const handleDeclineSwap = async (id) => {
+    setSwapActing('decline-' + id);
+    try {
+      await api.declineSwap(id);
+      await loadData();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSwapActing(null);
+    }
+  };
+
   const pendingConns = connections.filter(c => c.status === 'pending');
   const confirmedConns = connections.filter(c => c.status === 'confirmed');
 
@@ -96,7 +128,44 @@ export default function MyConnections({ currentUser }) {
         </div>
       )}
 
-      {/* Incoming pending requests */}
+      {/* Incoming swap requests */}
+      {swapData.incoming.filter(s => s.status === 'pending').length > 0 && (
+        <div>
+          <h2 className="text-sm font-medium text-brand-600 uppercase tracking-wider mb-3">
+            Room Swap Requests ({swapData.incoming.filter(s => s.status === 'pending').length})
+          </h2>
+          <div className="space-y-3">
+            {swapData.incoming.filter(s => s.status === 'pending').map(s => (
+              <div key={s.id} className="card py-4 px-5">
+                <p className="font-medium text-gray-900 mb-1">
+                  {s.requester_person.name} wants your room ({s.target_room})
+                </p>
+                <p className="text-sm text-gray-500 mb-3">
+                  They're in {s.requester_room} — you'd move there
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleAcceptSwap(s.id)}
+                    disabled={swapActing === 'accept-' + s.id}
+                    className="btn-primary text-sm py-2 px-4 flex-1"
+                  >
+                    {swapActing === 'accept-' + s.id ? 'Accepting...' : 'Accept & Swap'}
+                  </button>
+                  <button
+                    onClick={() => handleDeclineSwap(s.id)}
+                    disabled={swapActing === 'decline-' + s.id}
+                    className="btn-secondary text-sm py-2 px-4"
+                  >
+                    {swapActing === 'decline-' + s.id ? '...' : 'Decline'}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Incoming connection requests */}
       {pendingRequests.filter(r => r.incoming).length > 0 && (
         <div>
           <h2 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-3">
@@ -122,7 +191,7 @@ export default function MyConnections({ currentUser }) {
         </div>
       )}
 
-      {/* Outgoing pending requests */}
+      {/* Outgoing pending connection requests */}
       {pendingConns.length > 0 && (
         <div>
           <h2 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-3">
@@ -140,6 +209,28 @@ export default function MyConnections({ currentUser }) {
                     Pending
                   </span>
                 </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Outgoing swap requests */}
+      {swapData.outgoing.filter(s => s.status === 'pending').length > 0 && (
+        <div>
+          <h2 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-3">
+            Sent Swap Requests
+          </h2>
+          <div className="space-y-3">
+            {swapData.outgoing.filter(s => s.status === 'pending').map(s => (
+              <div key={s.id} className="card py-4 px-5 flex items-center justify-between">
+                <div>
+                  <p className="font-medium text-gray-900">{s.target_person.name}'s room ({s.target_room})</p>
+                  <p className="text-sm text-gray-500">Awaiting response</p>
+                </div>
+                <span className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-full px-3 py-1">
+                  Pending
+                </span>
               </div>
             ))}
           </div>

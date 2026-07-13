@@ -2,6 +2,7 @@ const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const { getDb } = require('../db');
 const { verifyToken } = require('../middleware/auth');
+const { recheckAllSavedSearches } = require('../recheckSearches');
 
 const router = express.Router();
 
@@ -109,6 +110,10 @@ router.put('/:id/consent', (req, res) => {
   }
 
   db.prepare(`UPDATE connections SET ${direction} = ? WHERE id = ?`).run(value ? 1 : 0, req.params.id);
+
+  // Consent changes can affect pathfinding — re-check saved searches
+  recheckAllSavedSearches();
+
   res.json({ id: req.params.id, [direction]: value });
 });
 

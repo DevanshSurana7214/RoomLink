@@ -17,6 +17,11 @@ export default function Landing({ currentUser, onLogin }) {
           Welcome back, {currentUser.name}!
         </h2>
         <p className="text-gray-500 mb-6">Room {currentUser.room_no}</p>
+        {currentUser.previous_room && currentUser.previous_room !== currentUser.room_no && (
+          <p className="text-xs text-gray-400 mb-6">
+            Switched from {currentUser.previous_room} to {currentUser.room_no}
+          </p>
+        )}
         <div className="flex justify-center gap-3">
           <button onClick={() => navigate('/search')} className="btn-primary">
             Find a Path

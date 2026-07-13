@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 
-function PathCard({ person, isLast, index }) {
+function PathCard({ person, isLast }) {
   return (
     <div className="flex flex-col items-center">
       <div className="card py-4 px-6 flex items-center gap-4 min-w-[200px]">
@@ -26,28 +26,76 @@ function PathCard({ person, isLast, index }) {
   );
 }
 
-export default function PathDisplay({ result }) {
+export default function PathDisplay({
+  result,
+  currentUser,
+  onRequestSwap,
+  swapSending,
+  onWatchRoom,
+  watchingLoading,
+}) {
+  const [swapConfirming, setSwapConfirming] = useState(false);
+
   if (!result) return null;
 
   if (!result.found) {
     return (
-      <div className="card text-center py-8">
-        <div className="text-5xl mb-4">🚫</div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">No consented path found</h3>
-        <p className="text-gray-500 text-sm">
-          There is no path using only explicitly consented connections to any of your target rooms.
-        </p>
-        <div className="mt-4 bg-gray-50 rounded-lg p-4 text-sm text-gray-600">
-          <p className="font-medium mb-1">Possible reasons:</p>
-          <ul className="list-disc list-inside space-y-1 text-gray-500">
-            <li>No one in your network has a connection to those rooms</li>
-            <li>People along the path haven't granted consent in the required direction</li>
-            <li>Your connections are still pending confirmation</li>
-          </ul>
+      <div className="space-y-4">
+        <div className="card text-center py-8">
+          <div className="text-5xl mb-4">🚫</div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">No consented path found</h3>
+          <p className="text-gray-500 text-sm">
+            There is no path using only explicitly consented connections to any of your target rooms.
+          </p>
+          <div className="mt-4 bg-gray-50 rounded-lg p-4 text-sm text-gray-600">
+            <p className="font-medium mb-1">Possible reasons:</p>
+            <ul className="list-disc list-inside space-y-1 text-gray-500">
+              <li>No one in your network has a connection to those rooms</li>
+              <li>People along the path haven't granted consent in the required direction</li>
+              <li>Your connections are still pending confirmation</li>
+            </ul>
+          </div>
         </div>
+        {onWatchRoom && (
+          <button
+            onClick={onWatchRoom}
+            disabled={watchingLoading}
+            className="btn-primary w-full"
+          >
+            {watchingLoading ? (
+              <span className="flex items-center gap-2 justify-center">
+                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                Saving...
+              </span>
+            ) : (
+              '👀 No path yet — Watch for this room'
+            )}
+          </button>
+        )}
       </div>
     );
   }
+
+  const targetPerson = result.path[result.path.length - 1];
+  const isOwnRoom = currentUser && currentUser.room_no?.toLowerCase() === result.target_room?.toLowerCase();
+
+  const handleSwapClick = () => {
+    if (!targetPerson) return;
+    setSwapConfirming(true);
+    const confirmed = window.confirm(
+      `Request a room swap with ${targetPerson.name}?\n\n` +
+      `You (Room ${currentUser?.room_no || '?'}) → Room ${result.target_room}\n` +
+      `${targetPerson.name} (Room ${result.target_room}) → Room ${currentUser?.room_no || '?'}\n\n` +
+      `They will need to accept for the swap to happen.`
+    );
+    if (confirmed) {
+      onRequestSwap && onRequestSwap();
+    }
+    setSwapConfirming(false);
+  };
 
   return (
     <div className="space-y-6">
@@ -70,11 +118,31 @@ export default function PathDisplay({ result }) {
           <PathCard
             key={`${person.id}-${idx}`}
             person={person}
-            index={idx}
             isLast={idx === result.path.length - 1}
           />
         ))}
       </div>
+
+      {/* Swap request button — prominent, single action */}
+      {!isOwnRoom && targetPerson && onRequestSwap && (
+        <button
+          onClick={handleSwapClick}
+          disabled={swapSending || swapConfirming}
+          className="btn-primary w-full text-base py-4"
+        >
+          {swapSending ? (
+            <span className="flex items-center gap-2 justify-center">
+              <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+              Sending request...
+            </span>
+          ) : (
+            `Request swap with ${targetPerson.name} in ${result.target_room}`
+          )}
+        </button>
+      )}
 
       {/* Alternative targets */}
       {result.alternative_targets && result.alternative_targets.length > 0 && (

@@ -49,7 +49,7 @@ export const api = {
   getMyProfile: () =>
     request('/people/me'),
 
-  // Connections (identity derived from token — no person_id params)
+  // Connections
   addConnection: (toId) =>
     request('/connections', {
       method: 'POST',
@@ -71,12 +71,48 @@ export const api = {
   getPendingRequests: () =>
     request('/connections/pending'),
 
-  // Search (identity derived from token — no person_id param)
+  // Search / Pathfinding
   findPath: (targetRooms) =>
     request('/search', {
       method: 'POST',
       body: JSON.stringify({ target_rooms: targetRooms }),
     }),
+
+  // Saved Searches (standing search / watch)
+  saveSearch: (targetRooms) =>
+    request('/searches', {
+      method: 'POST',
+      body: JSON.stringify({ target_rooms: targetRooms }),
+    }),
+
+  getMySearches: () =>
+    request('/searches/me'),
+
+  cancelSearch: (id) =>
+    request(`/searches/${id}`, { method: 'DELETE' }),
+
+  // Swap Requests
+  requestSwap: (targetPersonId, targetRoom) =>
+    request('/swaps', {
+      method: 'POST',
+      body: JSON.stringify({ target_person_id: targetPersonId, target_room: targetRoom }),
+    }),
+
+  acceptSwap: (id) =>
+    request(`/swaps/${id}/accept`, { method: 'PUT' }),
+
+  declineSwap: (id) =>
+    request(`/swaps/${id}/decline`, { method: 'PUT' }),
+
+  cancelSwap: (id) =>
+    request(`/swaps/${id}/cancel`, { method: 'PUT' }),
+
+  getMySwaps: () =>
+    request('/swaps/me'),
+
+  // Notifications (aggregated)
+  getNotifications: () =>
+    request('/notifications'),
 };
 
 export function getCurrentPerson() {

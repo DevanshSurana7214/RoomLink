@@ -79,7 +79,7 @@ router.get('/search', verifyToken, (req, res) => {
 // Get current user's own profile (auth required)
 router.get('/me', verifyToken, (req, res) => {
   const db = getDb();
-  const person = db.prepare('SELECT id, name, roll_number, room_no FROM people WHERE id = ?').get(req.userId);
+  const person = db.prepare('SELECT id, name, roll_number, room_no, previous_room FROM people WHERE id = ?').get(req.userId);
   if (!person) {
     return res.status(404).json({ error: 'Person not found' });
   }

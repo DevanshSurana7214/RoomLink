@@ -7,6 +7,7 @@ import Register from './components/Register';
 import AddConnection from './components/AddConnection';
 import MyConnections from './components/MyConnections';
 import Search from './components/Search';
+import NotificationsPage from './components/NotificationsPage';
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
@@ -46,6 +47,10 @@ export default function App() {
           <Route
             path="/search"
             element={<Search currentUser={currentUser} />}
+          />
+          <Route
+            path="/notifications"
+            element={<NotificationsPage currentUser={currentUser} />}
           />
         </Routes>
       </main>

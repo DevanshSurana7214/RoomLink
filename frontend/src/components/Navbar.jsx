@@ -1,8 +1,27 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { api } from '../api';
+import { POLL_INTERVAL } from '../constants';
 
 export default function Navbar({ currentUser, onLogout }) {
   const location = useLocation();
+  const [notifCount, setNotifCount] = useState(0);
+
+  const fetchCount = useCallback(async () => {
+    if (!currentUser) return;
+    try {
+      const data = await api.getNotifications();
+      setNotifCount(data.total_count);
+    } catch (_) {
+      // Silently fail — the bell just shows 0
+    }
+  }, [currentUser]);
+
+  useEffect(() => {
+    fetchCount();
+    const interval = setInterval(fetchCount, POLL_INTERVAL);
+    return () => clearInterval(interval);
+  }, [fetchCount]);
 
   const isActive = (path) =>
     location.pathname === path
@@ -40,6 +59,17 @@ export default function Navbar({ currentUser, onLogout }) {
                   className={`px-3 py-2 text-sm font-medium border-b-2 transition-colors ${isActive('/connect')}`}
                 >
                   Add Connection
+                </Link>
+                <Link
+                  to="/notifications"
+                  className={`relative px-3 py-2 text-sm font-medium border-b-2 transition-colors ${isActive('/notifications')}`}
+                >
+                  <span className="text-lg">🔔</span>
+                  {notifCount > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 shadow-sm">
+                      {notifCount > 99 ? '99+' : notifCount}
+                    </span>
+                  )}
                 </Link>
                 <div className="ml-4 flex items-center gap-3 border-l border-gray-200 pl-4">
                   <div className="text-right">

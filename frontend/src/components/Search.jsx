@@ -1,13 +1,38 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { api } from '../api';
 import { normalizeRoom } from '../roomUtils';
 import PathDisplay from './PathDisplay';
 
 export default function Search({ currentUser }) {
+  const location = useLocation();
   const [targetRooms, setTargetRooms] = useState('');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
+  const [savedSearches, setSavedSearches] = useState([]);
+  const [watchingLoading, setWatchingLoading] = useState(false);
+  const [swapSending, setSwapSending] = useState(false);
+  const [swapMessage, setSwapMessage] = useState('');
+  const [watchMessage, setWatchMessage] = useState('');
+
+  // Load saved searches on mount
+  useEffect(() => {
+    if (!currentUser) return;
+    api.getMySearches()
+      .then(setSavedSearches)
+      .catch(() => {});
+  }, [currentUser]);
+
+  // If navigated here from a notification (view path), show that result
+  useEffect(() => {
+    if (location.state?.savedResult) {
+      setResult(location.state.savedResult);
+      setTargetRooms(location.state.savedResult.target_room || '');
+      // Clear the state so it doesn't re-show on re-render
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   if (!currentUser) {
     return (
@@ -21,6 +46,8 @@ export default function Search({ currentUser }) {
     e.preventDefault();
     setError('');
     setResult(null);
+    setSwapMessage('');
+    setWatchMessage('');
 
     const rooms = targetRooms
       .split(/[,;]+/)
@@ -43,6 +70,50 @@ export default function Search({ currentUser }) {
       setLoading(false);
     }
   };
+
+  const handleWatchRoom = async () => {
+    const rooms = targetRooms
+      .split(/[,;]+/)
+      .map(r => r.trim())
+      .filter(r => r.length > 0)
+      .map(r => normalizeRoom(r) || r);
+
+    if (rooms.length === 0) return;
+
+    setWatchingLoading(true);
+    setWatchMessage('');
+    try {
+      await api.saveSearch(rooms);
+      setWatchMessage(`We'll notify you when a path to ${rooms.join(', ')} becomes available!`);
+      // Refresh saved searches list
+      const searches = await api.getMySearches();
+      setSavedSearches(searches);
+    } catch (err) {
+      setWatchMessage(err.message);
+    } finally {
+      setWatchingLoading(false);
+    }
+  };
+
+  const handleRequestSwap = async () => {
+    if (!result?.found || !result?.path) return;
+    const targetPerson = result.path[result.path.length - 1];
+    if (!targetPerson) return;
+
+    setSwapSending(true);
+    setSwapMessage('');
+    try {
+      const data = await api.requestSwap(targetPerson.id, result.target_room);
+      setSwapMessage(`Swap request sent to ${data.target_person.name}!`);
+    } catch (err) {
+      setSwapMessage(err.message);
+    } finally {
+      setSwapSending(false);
+    }
+  };
+
+  // Active watching searches for display
+  const watchingSearches = savedSearches.filter(s => s.status === 'watching' || s.status === 'found');
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
@@ -106,8 +177,67 @@ export default function Search({ currentUser }) {
         </form>
       </div>
 
+      {/* Swap request status message */}
+      {swapMessage && (
+        <div className={`rounded-lg p-4 text-sm ${
+          swapMessage.includes('sent')
+            ? 'bg-emerald-50 border border-emerald-200 text-emerald-700'
+            : 'bg-red-50 border border-red-200 text-red-600'
+        }`}>
+          {swapMessage}
+        </div>
+      )}
+
+      {/* Watch room message */}
+      {watchMessage && (
+        <div className={`rounded-lg p-4 text-sm ${
+          watchMessage.includes('notify') || watchMessage.includes('available')
+            ? 'bg-blue-50 border border-blue-200 text-blue-700'
+            : 'bg-red-50 border border-red-200 text-red-600'
+        }`}>
+          {watchMessage}
+        </div>
+      )}
+
       {result && (
-        <PathDisplay result={result} />
+        <PathDisplay
+          result={result}
+          currentUser={currentUser}
+          onRequestSwap={handleRequestSwap}
+          swapSending={swapSending}
+          onWatchRoom={handleWatchRoom}
+          watchingLoading={watchingLoading}
+        />
+      )}
+
+      {/* Saved searches summary */}
+      {watchingSearches.length > 0 && (
+        <div className="card py-4 px-5">
+          <h4 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-3">
+            Watching ({watchingSearches.filter(s => s.status === 'watching').length} active)
+          </h4>
+          <div className="space-y-2">
+            {watchingSearches.map(s => (
+              <div key={s.id} className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg">
+                <div className="flex items-center gap-2">
+                  {s.status === 'found' ? (
+                    <span className="text-emerald-500 text-sm">🎉</span>
+                  ) : (
+                    <span className="text-blue-400 text-sm">👀</span>
+                  )}
+                  <span className="text-sm text-gray-700">
+                    {s.target_rooms.join(', ')}
+                  </span>
+                </div>
+                <span className={`text-xs font-medium ${
+                  s.status === 'found' ? 'text-emerald-600' : 'text-gray-400'
+                }`}>
+                  {s.status === 'found' ? 'Path found!' : 'Watching...'}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
     </div>
   );
