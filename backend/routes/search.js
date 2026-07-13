@@ -1,15 +1,22 @@
 const express = require('express');
 const { getDb } = require('../db');
+const { verifyToken } = require('../middleware/auth');
+const { normalizeRoom } = require('../roomUtils');
 
 const router = express.Router();
 
-// BFS pathfinding over the directed consent graph
-// Body: { person_id, target_rooms: ["A206", "A310", ...] }
-router.post('/', (req, res) => {
-  const { person_id, target_rooms } = req.body;
+// All routes require authentication
+router.use(verifyToken);
 
-  if (!person_id || !target_rooms || !Array.isArray(target_rooms) || target_rooms.length === 0) {
-    return res.status(400).json({ error: 'person_id and target_rooms (non-empty array) are required' });
+// BFS pathfinding over the directed consent graph
+// Body: { target_rooms: ["A206", "A310", ...] }
+// Person identity derived from req.userId
+router.post('/', (req, res) => {
+  const { target_rooms } = req.body;
+  const person_id = req.userId;
+
+  if (!target_rooms || !Array.isArray(target_rooms) || target_rooms.length === 0) {
+    return res.status(400).json({ error: 'target_rooms (non-empty array) are required' });
   }
 
   const db = getDb();
@@ -34,19 +41,15 @@ router.post('/', (req, res) => {
     });
   }
 
-  // Build the directed graph on the fly
-  // For each confirmed connection, we have directional edges where consent is true
-  // Edge from A to B exists if a_to_b_consent = 1 AND status = 'confirmed'
-  // Edge from B to A exists if b_to_a_consent = 1 AND status = 'confirmed'
-
   // BFS state
   const visited = new Set([person_id]);
   const queue = [{ id: person_id, path: [] }];
   let foundPaths = [];
 
-  const targetLower = target_rooms.map(r => r.toLowerCase().trim());
+  // Normalize all target rooms to canonical format
+  const normalizedTargets = target_rooms.map(r => normalizeRoom(r) || r.trim().toUpperCase());
+  const targetLower = normalizedTargets.map(r => r.toLowerCase());
 
-  // Track the current BFS depth for level-drained early exit
   let nodesInCurrentLevel = 1;
   let nodesInNextLevel = 0;
 
@@ -54,7 +57,6 @@ router.post('/', (req, res) => {
     const current = queue.shift();
     nodesInCurrentLevel--;
 
-    // Check if current node is in a target room
     const currentPerson = current.id === sourcePerson.id
       ? sourcePerson
       : db.prepare('SELECT id, name, room_no FROM people WHERE id = ?').get(current.id);
@@ -111,19 +113,15 @@ router.post('/', (req, res) => {
       }
     }
 
-    // When current level is drained, check if we found any paths
     if (nodesInCurrentLevel === 0) {
       if (foundPaths.length > 0) {
-        // Found all shortest paths at this depth. Stop early.
         break;
       }
-      // Move to next level
       nodesInCurrentLevel = nodesInNextLevel;
       nodesInNextLevel = 0;
     }
   }
 
-  // Sort by path length (shortest first)
   foundPaths.sort((a, b) => a.length - b.length);
 
   if (foundPaths.length === 0) {
@@ -133,7 +131,6 @@ router.post('/', (req, res) => {
     });
   }
 
-  // Return the shortest path, and mention if other targets were reachable
   const shortest = foundPaths[0];
   const otherTargets = foundPaths.slice(1).filter(p => p.target_room !== shortest.target_room);
 
@@ -141,7 +138,7 @@ router.post('/', (req, res) => {
     found: true,
     path: shortest.path,
     target_room: shortest.target_room,
-    path_length: shortest.length - 1, // number of hops
+    path_length: shortest.length - 1,
     alternative_targets: otherTargets.map(t => ({
       room: t.target_room,
       path_length: t.length - 1

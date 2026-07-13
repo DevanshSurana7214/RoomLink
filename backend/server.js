@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
@@ -5,6 +6,7 @@ const path = require('path');
 const peopleRoutes = require('./routes/people');
 const connectionsRoutes = require('./routes/connections');
 const searchRoutes = require('./routes/search');
+const authRoutes = require('./routes/auth');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -16,6 +18,7 @@ app.use(express.json());
 app.use('/api/people', peopleRoutes);
 app.use('/api/connections', connectionsRoutes);
 app.use('/api/search', searchRoutes);
+app.use('/api/auth', authRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { api } from '../api';
 
-function ConsentSwitch({ connectionId, personId, direction, label, enabled, onChange, loading }) {
+function ConsentSwitch({ connectionId, direction, label, enabled, onChange, loading }) {
   return (
     <div className={`flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg ${loading ? 'opacity-60' : ''}`}>
       <span className="text-sm text-gray-700">{label}</span>
       <button
-        onClick={() => !loading && onChange(connectionId, personId, direction, !enabled)}
+        onClick={() => !loading && onChange(connectionId, direction, !enabled)}
         className={`consent-toggle ${enabled ? 'on' : 'off'} ${loading ? 'cursor-wait' : 'cursor-pointer'}`}
         aria-label={label}
         disabled={loading}
@@ -30,8 +30,8 @@ export default function MyConnections({ currentUser }) {
     setLoading(true);
     try {
       const [conns, pending] = await Promise.all([
-        api.getPersonConnections(currentUser.id),
-        api.getPendingRequests(currentUser.id),
+        api.getMyConnections(),
+        api.getPendingRequests(),
       ]);
       setConnections(conns);
       setPendingRequests(pending);
@@ -66,10 +66,10 @@ export default function MyConnections({ currentUser }) {
     }
   };
 
-  const handleConsentChange = async (connectionId, personId, direction, value) => {
+  const handleConsentChange = async (connectionId, direction, value) => {
     setConsentLoading(connectionId + direction);
     try {
-      await api.setConsent(connectionId, personId, direction, value);
+      await api.setConsent(connectionId, direction, value);
       await loadData();
     } catch (err) {
       setError(err.message);
@@ -78,7 +78,6 @@ export default function MyConnections({ currentUser }) {
     }
   };
 
-  // Separate pending and confirmed
   const pendingConns = connections.filter(c => c.status === 'pending');
   const confirmedConns = connections.filter(c => c.status === 'confirmed');
 
@@ -173,7 +172,6 @@ export default function MyConnections({ currentUser }) {
                 </p>
                 <ConsentSwitch
                   connectionId={conn.id}
-                  personId={currentUser.id}
                   direction={conn.myConsentDirection}
                   label={`Allow routing through you to reach ${conn.otherPerson.name}'s room`}
                   enabled={conn.myConsent}

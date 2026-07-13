@@ -1,10 +1,23 @@
 const BASE_URL = '/api';
 
+function getToken() {
+  const stored = localStorage.getItem('roomlink_token');
+  return stored || null;
+}
+
 async function request(url, options = {}) {
+  const headers = { 'Content-Type': 'application/json' };
+
+  const token = getToken();
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
   const res = await fetch(`${BASE_URL}${url}`, {
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     ...options,
   });
+
   const data = await res.json();
   if (!res.ok) {
     throw new Error(data.error || 'Something went wrong');
@@ -13,6 +26,13 @@ async function request(url, options = {}) {
 }
 
 export const api = {
+  // Auth
+  login: (rollNumber, password) =>
+    request('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ roll_number: rollNumber, password }),
+    }),
+
   // People
   registerPerson: (data) =>
     request('/people', {
@@ -26,36 +46,36 @@ export const api = {
   getPerson: (id) =>
     request(`/people/${id}`),
 
-  getPersonByRoll: (rollNumber) =>
-    request(`/people/roll/${encodeURIComponent(rollNumber)}`),
+  getMyProfile: () =>
+    request('/people/me'),
 
-  // Connections
-  addConnection: (fromId, toId) =>
+  // Connections (identity derived from token — no person_id params)
+  addConnection: (toId) =>
     request('/connections', {
       method: 'POST',
-      body: JSON.stringify({ from_id: fromId, to_id: toId }),
+      body: JSON.stringify({ to_id: toId }),
     }),
 
   confirmConnection: (id) =>
     request(`/connections/${id}/confirm`, { method: 'PUT' }),
 
-  setConsent: (id, personId, direction, value) =>
-    request(`/connections/${id}/consent`, {
+  setConsent: (connectionId, direction, value) =>
+    request(`/connections/${connectionId}/consent`, {
       method: 'PUT',
-      body: JSON.stringify({ person_id: personId, direction, value }),
+      body: JSON.stringify({ direction, value }),
     }),
 
-  getPersonConnections: (personId) =>
-    request(`/connections/person/${personId}`),
+  getMyConnections: () =>
+    request('/connections/person'),
 
-  getPendingRequests: (personId) =>
-    request(`/connections/pending/${personId}`),
+  getPendingRequests: () =>
+    request('/connections/pending'),
 
-  // Search
-  findPath: (personId, targetRooms) =>
+  // Search (identity derived from token — no person_id param)
+  findPath: (targetRooms) =>
     request('/search', {
       method: 'POST',
-      body: JSON.stringify({ person_id: personId, target_rooms: targetRooms }),
+      body: JSON.stringify({ target_rooms: targetRooms }),
     }),
 };
 
@@ -70,4 +90,10 @@ export function setCurrentPerson(person) {
 
 export function clearCurrentPerson() {
   localStorage.removeItem('roomlink_user');
+  localStorage.removeItem('roomlink_token');
+}
+
+export function setAuthData(person, token) {
+  localStorage.setItem('roomlink_user', JSON.stringify(person));
+  localStorage.setItem('roomlink_token', token);
 }

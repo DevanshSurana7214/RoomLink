@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { api, setCurrentPerson } from '../api';
+import { api, setAuthData } from '../api';
+import { validateRoom } from '../roomUtils';
 
 export default function Register({ onRegister }) {
-  const [form, setForm] = useState({ name: '', roll_number: '', room_no: '' });
+  const [form, setForm] = useState({ name: '', roll_number: '', room_no: '', password: '', confirmPassword: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -16,16 +17,38 @@ export default function Register({ onRegister }) {
     e.preventDefault();
     setError('');
 
-    if (!form.name.trim() || !form.roll_number.trim() || !form.room_no.trim()) {
+    if (!form.name.trim() || !form.roll_number.trim() || !form.room_no.trim() || !form.password) {
       setError('All fields are required');
+      return;
+    }
+
+    // Validate room number format before submitting
+    const roomError = validateRoom(form.room_no);
+    if (roomError) {
+      setError(roomError);
+      return;
+    }
+
+    if (form.password.length < 6) {
+      setError('Password must be at least 6 characters');
+      return;
+    }
+
+    if (form.password !== form.confirmPassword) {
+      setError('Passwords do not match');
       return;
     }
 
     setLoading(true);
     try {
-      const person = await api.registerPerson(form);
-      setCurrentPerson(person);
-      onRegister(person);
+      const data = await api.registerPerson({
+        name: form.name,
+        roll_number: form.roll_number,
+        room_no: form.room_no,
+        password: form.password,
+      });
+      setAuthData(data.person, data.token);
+      onRegister(data.person);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -75,6 +98,30 @@ export default function Register({ onRegister }) {
               className="input-field"
               placeholder="e.g. A101"
               value={form.room_no}
+              onChange={handleChange}
+            />
+          </div>
+
+          <div>
+            <label className="label">Password</label>
+            <input
+              type="password"
+              name="password"
+              className="input-field"
+              placeholder="At least 6 characters"
+              value={form.password}
+              onChange={handleChange}
+            />
+          </div>
+
+          <div>
+            <label className="label">Confirm Password</label>
+            <input
+              type="password"
+              name="confirmPassword"
+              className="input-field"
+              placeholder="Repeat your password"
+              value={form.confirmPassword}
               onChange={handleChange}
             />
           </div>

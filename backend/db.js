@@ -21,7 +21,8 @@ function initSchema() {
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
       roll_number TEXT UNIQUE NOT NULL,
-      room_no TEXT NOT NULL
+      room_no TEXT NOT NULL,
+      password_hash TEXT NOT NULL DEFAULT ''
     );
 
     CREATE TABLE IF NOT EXISTS connections (
@@ -38,6 +39,14 @@ function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_connections_people ON connections(person_a_id, person_b_id);
     CREATE INDEX IF NOT EXISTS idx_connections_status ON connections(status);
   `);
+
+  // Add password_hash column if upgrading from old schema
+  // This is outside the db.exec() call so we can use JS try/catch
+  try {
+    db.exec("ALTER TABLE people ADD COLUMN password_hash TEXT NOT NULL DEFAULT ''");
+  } catch (_e) {
+    // Column already exists on fresh database — no action needed
+  }
 }
 
 module.exports = { getDb };

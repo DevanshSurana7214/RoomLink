@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { api, setCurrentPerson } from '../api';
+import { api, setAuthData } from '../api';
 
 export default function Landing({ currentUser, onLogin }) {
   const [rollNumber, setRollNumber] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -31,17 +32,17 @@ export default function Landing({ currentUser, onLogin }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    if (!rollNumber.trim()) {
-      setError('Please enter your roll number');
+    if (!rollNumber.trim() || !password) {
+      setError('Please enter your roll number and password');
       return;
     }
     setLoading(true);
     try {
-      const person = await api.getPersonByRoll(rollNumber.trim());
-      setCurrentPerson(person);
-      onLogin(person);
+      const data = await api.login(rollNumber.trim(), password);
+      setAuthData(data.person, data.token);
+      onLogin(data.person);
     } catch (err) {
-      setError('No user found with this roll number. Please register first.');
+      setError('Invalid roll number or password. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -98,13 +99,23 @@ export default function Landing({ currentUser, onLogin }) {
               onChange={(e) => setRollNumber(e.target.value)}
             />
           </div>
+          <div>
+            <label className="label">Password</label>
+            <input
+              type="password"
+              className="input-field"
+              placeholder="Enter your password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </div>
           {error && (
             <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg p-3">
               {error}
             </p>
           )}
           <button type="submit" disabled={loading} className="btn-primary w-full">
-            {loading ? 'Looking up...' : 'Sign In'}
+            {loading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
         <p className="text-sm text-gray-500 text-center mt-4">

@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api';
 
@@ -27,7 +27,7 @@ export default function AddConnection({ currentUser }) {
     setStatus({ type: '', message: '' });
     try {
       const people = await api.searchPeople(query.trim());
-      setResults(people.filter(p => p.id !== currentUser.id));
+      setResults(people);
     } catch (err) {
       setStatus({ type: 'error', message: err.message });
     } finally {
@@ -39,12 +39,11 @@ export default function AddConnection({ currentUser }) {
     setSending(person.id);
     setStatus({ type: '', message: '' });
     try {
-      await api.addConnection(currentUser.id, person.id);
+      await api.addConnection(person.id);
       setStatus({
         type: 'success',
-        message: `Connection request sent to ${person.name}!`
+        message: `Connection request sent to ${person.name}!`,
       });
-      // Remove from results
       setResults(prev => prev.filter(p => p.id !== person.id));
     } catch (err) {
       setStatus({ type: 'error', message: err.message });
@@ -63,12 +62,12 @@ export default function AddConnection({ currentUser }) {
       <div className="card">
         <form onSubmit={handleSearch} className="space-y-4">
           <div>
-            <label className="label">Search by name, room, or roll number</label>
+            <label className="label">Search by name or roll number</label>
             <div className="flex gap-2">
               <input
                 type="text"
                 className="input-field flex-1"
-                placeholder="e.g. Alice, A101, CS22001..."
+                placeholder="e.g. Alice, CS22001..."
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 autoFocus
@@ -108,7 +107,7 @@ export default function AddConnection({ currentUser }) {
               <div>
                 <p className="font-medium text-gray-900">{person.name}</p>
                 <p className="text-sm text-gray-500">
-                  Room {person.room_no} · {person.roll_number}
+                  {person.roll_number}
                 </p>
               </div>
               <button

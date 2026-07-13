@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { api } from '../api';
+import { normalizeRoom } from '../roomUtils';
 import PathDisplay from './PathDisplay';
 
 export default function Search({ currentUser }) {
@@ -24,7 +25,8 @@ export default function Search({ currentUser }) {
     const rooms = targetRooms
       .split(/[,;]+/)
       .map(r => r.trim())
-      .filter(r => r.length > 0);
+      .filter(r => r.length > 0)
+      .map(r => normalizeRoom(r) || r);
 
     if (rooms.length === 0) {
       setError('Please enter at least one target room');
@@ -33,7 +35,7 @@ export default function Search({ currentUser }) {
 
     setLoading(true);
     try {
-      const data = await api.findPath(currentUser.id, rooms);
+      const data = await api.findPath(rooms);
       setResult(data);
     } catch (err) {
       setError(err.message);
